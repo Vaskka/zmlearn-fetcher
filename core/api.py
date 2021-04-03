@@ -96,6 +96,7 @@ class ZmTool:
             "parent_id": item["parentId"],
             "level": item["level"]
         }, raw_list)
+
     pass
 
     def fetch_question_detail_by_id(self, resource_id: int):
@@ -152,36 +153,35 @@ class QuestionDetailProcessor:
         save_raw_json_response(json.dumps(json_obj), RAW_DATA_SAVE_DIR, int(resource_id), str(resource_name),
                                RAW_QUESTION_DATA_SAVE_PREFIX + ONLY_ANS_PREFIX)
 
-        que_list = json_obj["data"]["examPaperDetail"]["examPaperContentOutputDTOList"][0][
-            "examPaperContentQuestionOutputDTOList"]
-
+        all_que_list = json_obj["data"]["examPaperDetail"]["examPaperContentOutputDTOList"]
         output = ""
+        for que_list_parent in all_que_list:
+            que_list = que_list_parent["examPaperContentQuestionOutputDTOList"]
+            for que_detail in que_list:
+                in_id = 1
+                out_id = str(que_detail["serialNumber"])
+                children = que_detail["questionOutputDTO"]["children"]
 
-        for que_detail in que_list:
-            in_id = 1
-            out_id = str(que_detail["serialNumber"])
-            children = que_detail["questionOutputDTO"]["children"]
-
-            if children is None:
-                output += "%s 答案：" % out_id
-                ans_list = que_detail["questionOutputDTO"]["answerList"]
-                ans_text = ",".join(ans_list)
-                output += ans_text
-                output += "\n"
-                pass
-            else:
-                for child in children:
-                    output += "%s.%d 答案：" % (out_id, in_id)
-                    ans_text = ",".join(child["answerList"])
-
+                if children is None:
+                    output += "%s 答案：" % out_id
+                    ans_list = que_detail["questionOutputDTO"]["answerList"]
+                    ans_text = ",".join(ans_list)
                     output += ans_text
                     output += "\n"
-
-                    in_id += 1
                     pass
+                else:
+                    for child in children:
+                        output += "%s.%d 答案：" % (out_id, in_id)
+                        ans_text = ",".join(child["answerList"])
 
-            output += "\n"
-            pass
+                        output += ans_text
+                        output += "\n"
+
+                        in_id += 1
+                        pass
+
+                output += "\n"
+                pass
 
         # add big title and save in html
         cls.add_big_title_and_write_file(output, resource_id, resource_name, ONLY_ANS_PREFIX, "_答案")
@@ -217,17 +217,17 @@ class QuestionDetailProcessor:
                     title = "<p>" + title
                     title = "<h4>" + title + "</h4>"
 
-                    option_list = [filter_p_text(i) for i in sub_que["questionOutputDTO"]["optionList"]]
-                    option_text = ""
-                    opt_ser = 0
-                    for opt in option_list:
-                        opt = chr(65 + opt_ser) + ". " + opt
-                        opt = add_p_text(opt)
-                        opt_ser += 1
-                        option_text += opt
-                        pass
+                    children = sub_que["questionOutputDTO"]["children"]
+                    output += title + "\n"
 
-                    output += (title + "\n" + option_text + "\n")
+                    if children is None or len(children) == 0:
+                        output += cls._get_option_list(sub_que["questionOutputDTO"])
+                    else:
+                        sub_child_ser_num = 1
+                        for child in children:
+                            output += cls._get_option_list(child, sub_child_ser_num)
+                            sub_child_ser_num += 1
+                            pass
                     pass
                 else:
                     # 解答题
@@ -261,6 +261,29 @@ class QuestionDetailProcessor:
         # add big title and save in html
         cls.add_big_title_and_write_file(output, resource_id, resource_name, NO_ANS_PREFIX, "_试题")
         pass
+
+    @classmethod
+    def _get_option_list(cls, child, ser_num: int = None):
+        title = child["title"]
+
+        if ser_num is not None:
+            title = ("(%d). &nbsp;" % ser_num + filter_p_text(title))
+            title = add_p_text(title)
+            pass
+
+        output = ""
+        option_list = [filter_p_text(i) for i in child["optionList"]]
+        option_text = ""
+        opt_ser = 0
+        for opt in option_list:
+            opt = chr(65 + opt_ser) + ". " + opt
+            opt = add_p_text(opt)
+            opt_ser += 1
+            option_text += opt
+            pass
+
+        output += (title + "\n" + option_text + "\n")
+        return output
 
     @classmethod
     def add_big_title_and_write_file(cls, output: str, resource_id: int, resource_name: str, _type, ext_title=""):
@@ -318,10 +341,5 @@ class DocDetailProcessor:
         with open(html_file_name, "w") as f:
             f.write(final_html)
         pass
-    pass
 
-
-if __name__ == '__main__':
-    zm_tool = ZmTool("xxx", "yyy")
-    zm_tool.process_doc(32262973)
     pass
