@@ -12,7 +12,7 @@
 + HTMLParser
 
 ### Example:
-```python
+
 from core.api import ZmTool
 
 
@@ -26,7 +26,7 @@ print(tool.list_doc_dir(parent_id=0))
 
 # 导出课件
 tool.process_doc(doc_id=123)
-```
+
 
 tips:
 1. _type的取值：目前仅支持 `仅导出试卷（_type传入0）` 和 `仅导出答案（_type传入1）两种方式。`
